@@ -132,3 +132,4 @@ dmypy.json
 example.db
 search_history.db
 main.py
+conductor_searchcounter_data

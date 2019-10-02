@@ -30,6 +30,9 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
     ],
     install_requires=install_requires,
+    python_requires=">=3.7",
     packages=setuptools.find_packages(),
-    entry_points={}
+    entry_points={
+        'console_scripts': [
+            'conductor-searchcounter=conductor_searchcounter.cli:main']}
 )

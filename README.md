@@ -16,6 +16,7 @@
 - Any new search added to the search history has a timestamp that is equal or greater than the last search added
 - The list of Terms are passed to the `SearchCounter` object at instantiation time
 - The terms can be reused for any search any amount of times
+- There will always be a term to choose from
 - the id is `uuid.uuid4()`
 - the timestamp is nanoseconds since the epoch
 
@@ -43,7 +44,7 @@ One can install the requirements with the following script:
 
 ``` bash
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip
+sudo apt-get install -y python3.7 python3-pip
 pip3 install pipenv
 ```
 
@@ -63,21 +64,22 @@ git clone https://github.com/stenioaraujo/conductor-searchcounter
 cd conductor-searchcounter
 pipenv run pip install .
 pipenv shell
+conductor-searchcounter
 python # to start the interpreter
 ```
 
-Any python application inside this virtual evnrionoment will have access to the `conductor_searchcounter` library.
+Any python application inside this virtual evnrionoment will have access to the `conductor_searchcounter` library. Also the `conductor-searchcounter` CLI will be available inside the virtual environment.
 
 ## Install Globally
 
 ``` bash
 git clone https://github.com/stenioaraujo/conductor-searchcounter
-cd conductor-searchcounter
-pip3 install .
-python3 # to start the interpreter
+python3.7 -m pip install conductor-searchcounter/
+conductor-searchcounter
+python3.7 # to start the interpreter
 ```
 
-Other python applications on the system will have access to the `conductor_searchcounter` library.
+Other python applications on the system will have access to the `conductor_searchcounter` library. Also the `conductor-searchcounter` CLI will be available on the system.
 
 ## Usage
 
@@ -129,6 +131,9 @@ print(sc.num_arbitrary_lookback(3))  # Should print 3
 # The only way to reach the first searches we added is by going over three
 # seconds (the total we waiter)
 print(sc.num_arbitrary_lookback(4))  # Should print 5
+
+# Print the most common term in the last four seconds
+print(sc.most_common_term(4))
 ```
 
 - Using `DAOSqlite`:
@@ -184,6 +189,93 @@ print(sc.num_arbitrary_lookback(3))  # Should print 3
 # seconds (the total we waiter)
 print(sc.num_arbitrary_lookback(4))  # Should print 5
 
+# Print the most common term in the last four seconds
+print(sc.most_common_term(4))
+
 # End the database connection
 conn.close()
+```
+
+### CLI
+
+The CLI implementation makes use of `DAOSqlite` in order to allow persistence. When using the CLI one needs to pass the path to the SQLite database and the terms that will be used on the searches. There are two ways of doing this, inline or Environment Variables:
+
+- Pass database and terms **Inline**
+
+``` bash
+DATABASE=/tmp/search_history.db
+TERM1=job
+TERM2=conductor
+TERM3="how to get hired at conductor"
+
+conductor-searchcounter --database $DATABASE increment --term "$TERM1" --term "$TERM2" --term "$TERM3"
+conductor-searchcounter --database $DATABASE increment --term "$TERM1" --term "$TERM2" --term "$TERM3"
+sleep 1
+
+conductor-searchcounter --database $DATABASE num-arbitrary-lookback 1
+
+conductor-searchcounter --database $DATABASE increment --term "$TERM1" --term "$TERM2" --term "$TERM3"
+sleep 2
+
+conductor-searchcounter --database $DATABASE increment --term "$TERM1" --term "$TERM2" --term "$TERM3"
+conductor-searchcounter --database $DATABASE increment --term "$TERM1" --term "$TERM2" --term "$TERM3"
+
+conductor-searchcounter --database $DATABASE num-arbitrary-lookback 1
+conductor-searchcounter --database $DATABASE num-arbitrary-lookback 2
+conductor-searchcounter --database $DATABASE num-arbitrary-lookback 3
+conductor-searchcounter --database $DATABASE num-last-minute
+conductor-searchcounter --database $DATABASE most-common-term 10
+```
+
+- Pass database and terms as **Environment Variables**
+
+``` bash
+export CONDUCTOR_SEARCHCOUNTER_DATABASE=/tmp/search_history.db
+export CONDUCTOR_SEARCHCOUNTER_INCREMENT_TERMS="job hired conductor" # terms are split by white space
+
+conductor-searchcounter increment
+conductor-searchcounter increment
+sleep 1
+
+conductor-searchcounter num-arbitrary-lookback 1
+
+conductor-searchcounter increment
+sleep 2
+
+conductor-searchcounter increment
+conductor-searchcounter increment
+
+conductor-searchcounter num-arbitrary-lookback 1
+conductor-searchcounter num-arbitrary-lookback 2
+conductor-searchcounter num-arbitrary-lookback 3
+conductor-searchcounter num-last-minute
+conductor-searchcounter most-common-term 10
+```
+
+### Docker
+
+> **Note**: There is a compiled image at Docker Hub, if you just want to skip the build process. [stenioaraujo/conductor-searchcounter](https://hub.docker.com/r/stenioaraujo/conductor-searchcounter)
+
+- Build the image
+
+``` bash
+docker build -t stenioaraujo/conductor-searchcounter .
+```
+
+- Using the image
+
+The image works similar to the CLI, the only difference is how you access the SQLite database. To access the database using the container, you need to mount the container directory `/data` to your local machine, otherwise, the data won't persist.
+
+If you wish to use the same Environment Variables as the CLI, they are still available on the container:
+- `CONDUCTOR_SEARCHCOUNTER_DATABASE`; and
+- `CONDUCTOR_SEARCHCOUNTER_INCREMENT_TERMS`
+
+Using the container is very simple
+
+``` bash
+docker run --rm -it -v $PWD/conductor_searchcounter_data:/data stenioaraujo/conductor-searchcounter increment --term job --term conductor
+
+docker run --rm -it -v $PWD/conductor_searchcounter_data:/data -e "CONDUCTOR_SEARCHCOUNTER_INCREMENT_TERMS=job conductor" stenioaraujo/conductor-searchcounter increment
+
+docker run --rm -it -v $PWD/conductor_searchcounter_data:/data stenioaraujo/conductor-searchcounter num-last-minute
 ```
